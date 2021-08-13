@@ -45,3 +45,33 @@ class SystemParam:
         else:
             self.L = L
         self.H = self.A - self.L
+
+
+def create_random_system(dim, stable=True):
+    """
+    System matrix has spectral radius 0.95 (stable) or 1.05 (unstable).
+    Noise matrix has spectral radius 1.
+
+    Parameters
+    ----------
+    dim : int
+    stable : bool, optional
+
+    Returns
+    -------
+    SystemParam
+    """
+
+    A = np.random.random((dim, dim))
+    spec_rad = np.max(np.abs(np.linalg.eigvals(A)))
+    if stable:
+        A *= 0.95 / spec_rad
+    else:
+        A *= 1.05 / spec_rad
+
+    Q = np.random.random((dim, dim))
+    Q = 0.5 * (Q + Q.T)  # make symmetric
+    Q = Q + dim * np.eye(dim)  # make positive definite
+    Q /= np.max(np.abs(np.linalg.eigvals(Q)))
+
+    return SystemParam(A, Q)

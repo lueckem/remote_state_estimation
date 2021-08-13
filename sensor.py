@@ -18,8 +18,8 @@ class Sensor:
         """
         self.params = params
         self.x = [params.x0]
-        self.w = []  # noise
-        self.a = []  # 1 if state was sent, 0 if code was sent
+        self.w = [np.zeros(self.params.dim)]  # noise       # todo: should w and a start empty?
+        self.a = [0]  # 1 if state was sent, 0 if code was sent
         self.reference_time = 0
         self.current_step = 0  # idx of the current step
 
@@ -37,7 +37,7 @@ class Sensor:
 
     def _sample_w(self):
         if self.params.dim == 1:
-            w = np.random.normal(0, self.params.Q ** 0.5)
+            w = np.random.normal(0, self.params.Q[0] ** 0.5)
         else:
             w = np.random.multivariate_normal(np.zeros(self.params.dim), self.params.Q)
         return w

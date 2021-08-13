@@ -2,7 +2,7 @@ import numpy as np
 from system_param import SystemParam
 from sensor import SensorMessage
 # todo: replace transpose with .T
-# todo: where is k needed
+# todo: Problem: z_hat and P_z need delta[k-1] in the case gamma[k]=0!
 
 
 class Estimator:
@@ -18,10 +18,8 @@ class Estimator:
 
         self.x_hat = [params.x0]  # x_hat[k,:] = E[x_k | I_k]
         self.z_hat = [np.zeros(params.dim)]  # z_hat[k,:] = E[z_k | I_k]
-        self.z_pred = [params.H @ params.x0]  # z_pred[k-1,:] = E[z_k | I_{k-1}]
         self.gamma = [1]  # dropouts
-        self.delta = []  # acknowledgments  # todo: start empty?
-
+        self.delta = []  # acknowledgments
         self.P = [np.zeros((params.dim, params.dim))]
         self.P_z = [np.zeros((params.dim, params.dim))]
         self.sigma = [np.zeros((params.dim, params.dim))]
@@ -34,7 +32,7 @@ class Estimator:
 
     @property
     def P_trajectory(self):
-        return np.vstack(self.P)
+        return np.stack(self.P, axis=0)
 
     def update(self, msg):
         """
@@ -61,22 +59,27 @@ class Estimator:
 
         self._update_P_and_x(a, z)
         self._update_z_hat(a, z)
-        self._update_z_pred()
         self._update_P_z(a)
         self._update_sigma()
 
     def _update_P_and_x(self, a, z):
         k = self.current_step
+        print(k)
+        print(self.gamma)
+        print(self.delta)
         if a == 1:
             self.x_hat.append(z)
             self.P.append(np.zeros((self.params.dim, self.params.dim)))
         else:
-            x_hat = self.params.A @ self.x_hat[1]
+            x_hat = self.params.A @ self.x_hat[-1]
             P = self._Sigma_xx()
             if self.gamma[k] == 1:
                 Sigma_xz = self._Sigma_xz()
                 inv_Sigma_zz = np.linalg.inv(self._Sigma_zz())
-                x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self.z_pred[k - 1])
+                # print("z_pred: {}".format(self.z_pred))
+                # print("z: {}".format(self.z_hat))
+                # print("x_hat: {}".format(self.x_hat))
+                x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self._z_pred())
                 P -= Sigma_xz @ inv_Sigma_zz @ Sigma_xz.transpose()
             self.x_hat.append(x_hat)
             self.P.append(P)
@@ -101,6 +104,13 @@ class Estimator:
             Sigma_zz += self.params.L @ self.P_z[k - 1] @ self.params.L.transpose()
         return Sigma_zz
 
+    def _z_pred(self):
+        k = self.current_step
+        z_pred = self.params.H @ self.x_hat[k - 1]
+        if self.delta[k - 1] == 0:
+            z_pred += self.params.L @ self.z_hat[k - 1]
+        return z_pred
+
     def _update_z_hat(self, a, z):
         k = self.current_step
         if self.gamma[k] == 0:
@@ -114,13 +124,6 @@ class Estimator:
             if self.delta[k - 1] == 0:
                 z_hat += self.params.L @ self.z_hat[k - 1]
         self.z_hat.append(z_hat)
-
-    def _update_z_pred(self):  # todo: delta[k] does not exist yet?
-        k = self.current_step
-        z_pred = self.params.H @ self.x_hat[k]
-        if self.delta[k] == 0:
-            z_pred += self.params.L @ self.z_hat[k]
-        self.z_pred.append(z_pred)
 
     def _update_P_z(self, a):
         k = self.current_step
@@ -138,9 +141,9 @@ class Estimator:
     def _update_sigma(self):
         k = self.current_step
         if self.gamma[k] == 0:
-            sigma = self.params.A @ self.P[k - 1] @ self.params.H.transpose() + self.params.Q
+            sigma = self.params.A @ self.P[k - 1] @ self.params.H.T + self.params.Q
             if self.delta[k - 1] == 0:
-                sigma += self.params.A @ self.sigma[k - 1] @ self.params.L.transpose()
+                sigma += self.params.A @ self.sigma[k - 1] @ self.params.L.T
         else:
             sigma = np.zeros((self.params.dim, self.params.dim))
         self.sigma.append(sigma)
