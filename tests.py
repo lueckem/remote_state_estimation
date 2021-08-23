@@ -2,7 +2,7 @@ from unittest import TestCase
 import numpy as np
 from sensor import SensorMessage, Sensor, RandomSensor
 from estimator import Estimator
-from system_param import create_random_system
+from system_param import create_random_system, SystemParam
 
 
 class TestSensor(TestCase):
@@ -100,4 +100,128 @@ class TestEstimator(TestCase):
         print(self.estimator.P_trajectory)
         print(msg.z + np.linalg.matrix_power(self.params.L, 3) @ self.params.x0)
         self.assertTrue(np.allclose(self.rsensor.x[-1], self.estimator.x_hat[-1]))
+
+    def test_after_critical_event(self):
+        num_it = 2
+        error_simple = []
+        error_compl = []
+
+        for _ in range(num_it):
+            self.setUp()
+
+            self.rsensor.alpha = 0
+
+            # critical event at k=1
+            self.rsensor.update()
+            self.estimator.update(None, delta=1)
+            self.rsensor.update_reference_time(1)
+
+            self.rsensor.update()
+            msg = self.rsensor.send_code()
+            # print(msg)
+            self.estimator.update(msg)
+
+            x = self.rsensor.x_trajectory
+            x_hat = self.estimator.x_hat_trajectory
+
+            # print(x)
+            # print(x_hat)
+
+            # print(msg.z + self.params.L @ x[1, :])
+            # print(msg.z + self.params.L @ x_hat[1, :])
+            error_simple.append(np.linalg.norm(msg.z + self.params.L @ x_hat[1, :] - x[-1, :]))
+
+            A = self.params.A
+            L = self.params.L
+            H = self.params.H
+            Q = self.params.Q
+            x0 = self.params.x0
+
+            print(A @ x_hat[1, :] + (A @ Q @ H.T + Q) @ np.linalg.inv(H @ Q @ H.T + Q) @ (msg.z - H @ x_hat[1, :]))
+            error_compl.append(np.linalg.norm(A @ x_hat[1, :] + (A @ Q @ H.T + Q) @ np.linalg.inv(H @ Q @ H.T + Q) @
+                                              (msg.z - H @ x_hat[1, :]) - x[-1, :]))
+
+        print(np.mean(error_simple))
+        print(np.mean(error_compl))
+
+    def test_after_critical_event_2(self):
+        # k = 1: dropout + critical event
+        # k = 2,3: dropout
+        # K = 4: successful reception of state-secrecy code
+
+        self.rsensor.alpha = 0
+        x0 = self.params.x0
+
+        # k=1
+        self.rsensor.update()
+        self.estimator.update(None, delta=1)
+        self.rsensor.update_reference_time(1)
+
+        # k=2
+        self.rsensor.update()
+        self.estimator.update(None, delta=1)
+
+        # k=3
+        self.rsensor.update()
+        self.estimator.update(None, delta=0)
+
+        # k=4
+        self.rsensor.update()
+        msg = self.rsensor.send_code()
+        print(msg)
+        self.estimator.update(msg)
+
+        x_est = x_estimate(self.params, x0, msg.z, 4, 1)
+        print(x_est)
+
+        x = self.rsensor.x_trajectory
+        x_hat = self.estimator.x_hat_trajectory
+        print(x)
+        print(x_hat)
+
+
+
+
+
+def sigmas(params, k, t_k):
+    """
+    Parameters
+    ----------
+    params : SystemParam
+    k : int
+        current step
+    t_k : int
+        reference time
+
+    Returns
+    -------
+    tuple[np.ndarray]
+        Sigma_xz, Sigma_zz
+    """
+    sigma1 = params.Q
+    tmp = params.Q
+    for _ in range(k - t_k - 1):
+        tmp = params.A @ tmp @ params.A.T
+        sigma1 += tmp
+
+    sigma2 = params.Q
+    tmp = params.Q
+    for _ in range(t_k - 1):
+        tmp = params.A @ tmp @ params.A.T
+        sigma2 += tmp
+
+    A = np.linalg.matrix_power(params.A, k - t_k)
+    H = A - np.linalg.matrix_power(params.L, k - t_k)
+
+    sigma_xz = sigma1 + A @ sigma2 @ H.T
+    sigma_zz = sigma1 + H @ sigma2 @ H.T
+    return sigma_xz, sigma_zz
+
+
+def x_estimate(params, x0, z, k, t_k):
+    x_expec = np.linalg.matrix_power(params.A, k) @ x0
+    z_expec = x_expec - np.linalg.matrix_power(params.L, k - t_k) @ np.linalg.matrix_power(params.A, t_k) @ x0
+    sigma_xz, sigma_zz = sigmas(params, k, t_k)
+    # print(x_expec)
+    return x_expec + sigma_xz @ np.linalg.inv(sigma_zz) @ (z - z_expec)
 

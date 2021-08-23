@@ -20,31 +20,35 @@ def plot_traj(sensor, user, eavesdropper, e):
     # first subplot
     sensor_plot, = ax1.plot(sensor.x_trajectory[:, 0], '-s', label=r'$x$', color='tab:blue')
     user_plot, = ax1.plot(user.x_hat_trajectory[:, 0], '-o', label=r'$\hat{x}^u$', color='tab:green')
-    eaves_plot, = ax1.plot(eavesdropper.x_hat_trajectory[:, 0], '-x', label=r'$\hat{x}^e$', color='tab:orange')
-    num_steps = len(sensor.x_trajectory[:, 0])
-    ax1.set_xticks(np.arange(0, num_steps, 5))
-    ax1.set_xticklabels(np.arange(0, num_steps + 1, 5))
-    ax1.set_xticks(np.arange(0.5, num_steps + 1, 1), minor=True)
+    # eaves_plot, = ax1.plot(eavesdropper.x_hat_trajectory[:, 0], '-x', label=r'$\hat{x}^e$', color='tab:orange')
+    num_steps = len(sensor.x_trajectory[:, 0]) - 1
+    ax1.set_xticks(np.arange(0, num_steps + 1, 5))
+    ax1.set_xticklabels(np.arange(0, num_steps + 2, 5))
+    ax1.set_xticks(np.arange(0.5, num_steps + 2, 1), minor=True)
     ax1.grid(which='minor', axis='x')
     ax1.grid(which='major', axis='y')
-    ax1.legend(handles=[sensor_plot, user_plot, eaves_plot])
+    # ax1.legend(handles=[sensor_plot, user_plot, eaves_plot])
     # second subplot
     P_u = [np.trace(P) for P in user.P_trajectory]
     P_e = [np.trace(P) for P in eavesdropper.P_trajectory]
     user_plot, = ax2.plot(P_u, '-o', label='$P^u$', color='tab:green')
-    eaves_plot, = ax2.plot(P_e, '-x', label='$P^e$', color='tab:orange')
-    ax2.set_xticks(np.arange(0, num_steps, 5))
-    ax2.set_xticklabels(np.arange(0, num_steps + 1, 5))
-    ax2.set_xticks(np.arange(0.5, num_steps + 1, 1), minor=True)
+    # eaves_plot, = ax2.plot(P_e, '-x', label='$P^e$', color='tab:orange')
+    ax2.set_xticks(np.arange(0, num_steps + 1, 5))
+    ax2.set_xticklabels(np.arange(0, num_steps + 2, 5))
+    ax2.set_xticks(np.arange(0.5, num_steps + 2, 1), minor=True)
     ax2.grid(which='minor', axis='x')
     ax2.grid(which='major', axis='y')
-    ax2.legend(handles=[user_plot, eaves_plot])
+    # ax2.legend(handles=[user_plot, eaves_plot])
     # third
     binary_array = np.zeros((4, num_steps + 1))
-    binary_array[0, 1:] = user.gamma  # gamma_u
-    binary_array[1, 1:] = eavesdropper.gamma  # gamma_e
+    # binary_array[0, 1:] = user.gamma  # gamma_u
+    # binary_array[1, 1:] = eavesdropper.gamma  # gamma_e
     # binary_array[2, 2:] = e
     # binary_array[3, 1:] = sensor.a_trajectory
+    binary_array[0, :] = user.gamma  # gamma_u
+    binary_array[1, :] = eavesdropper.gamma  # gamma_e
+    binary_array[2, 1:] = e
+    binary_array[3, :] = sensor.a_trajectory
     ax3.imshow(binary_array, aspect='auto', cmap=plt.cm.get_cmap('binary'), interpolation=None)
     ax3.set_yticks([0, 1, 2, 3])
     ax3.set_yticklabels([r'$\gamma^u$', r'$\gamma^e$', r'$e$', r'$a$'])

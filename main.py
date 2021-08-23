@@ -1,5 +1,5 @@
 import numpy as np
-from system_param import SystemParam
+from system_param import SystemParam, create_random_system
 from sensor import SensorMessage, Sensor, RandomSensor
 from estimator import Estimator
 from plot import plot_traj
@@ -24,25 +24,30 @@ def run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e):
         # update system and sensor
         sensor.update()
 
+        # this should be deleted after delta fix
+        if k != 0:
+            # delta = gamma_u[k - 1] * (1 - e[k - 1]) + (1 - gamma_u[k - 1]) * e[k - 1]
+            delta = gamma_u[k - 1]
+        else:
+            delta = 1
+
         # send code
         msg = sensor.send_code()
 
         # update user
         if gamma_u[k] == 0:
-            user.update(None)
+            user.update(None, delta)  # it should not know delta
         else:
             user.update(msg)
 
         # update eavesdropper
         if gamma_e[k] == 0:
-            eavesdropper.update(None)
+            eavesdropper.update(None, delta)  # it should not know delta
         else:
             eavesdropper.update(msg)
 
         # send acknowledgement
-        delta = user.gamma[-1]
-        if e[k] == 1:
-            delta = 1 - delta
+        delta = gamma_u[k] * (1 - e[k]) + (1 - gamma_u[k]) * e[k]
         sensor.update_reference_time(delta)
 
 
@@ -50,17 +55,10 @@ def test():
     dim = 1
     num_steps = 10
 
-    A = np.random.random((dim, dim))
-    Q = np.random.random((dim, dim))
-    Q = 0.5 * (Q + Q.T)  # make symmetric
-    Q = Q + dim * np.eye(dim)  # make positive definite
-
-    print("A stable: {}".format(np.max(np.abs(np.linalg.eigvals(A))) < 1))
-
-    params = SystemParam(A, Q)
+    params = create_random_system(dim=dim, stable=True)
 
     # sensor = Sensor(params)
-    sensor = RandomSensor(params, probability_send_state=0.5)
+    sensor = RandomSensor(params, probability_send_state=0.1)
 
     user = Estimator(params)
     eavesdropper = Estimator(params)

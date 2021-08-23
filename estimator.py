@@ -1,7 +1,6 @@
 import numpy as np
 from system_param import SystemParam
 from sensor import SensorMessage
-# todo: replace transpose with .T
 # todo: Problem: z_hat and P_z need delta[k-1] in the case gamma[k]=0!
 
 
@@ -34,7 +33,7 @@ class Estimator:
     def P_trajectory(self):
         return np.stack(self.P, axis=0)
 
-    def update(self, msg):
+    def update(self, msg, delta=None):  # delta should be removed
         """
         Update x_hat and P based on the received message from the sensor.
 
@@ -50,7 +49,9 @@ class Estimator:
             self.gamma.append(0)
             z = None
             a = None
-            self.delta.append(None)
+            self.delta.append(delta)
+            # p = 0.1
+            # self.delta.append((1 - p) * delta + p * (1 - delta))
         else:
             self.gamma.append(1)
             z, ref_time = msg
@@ -64,9 +65,9 @@ class Estimator:
 
     def _update_P_and_x(self, a, z):
         k = self.current_step
-        print(k)
-        print(self.gamma)
-        print(self.delta)
+        # print(k)
+        # print(self.gamma)
+        # print(self.delta)
         if a == 1:
             self.x_hat.append(z)
             self.P.append(np.zeros((self.params.dim, self.params.dim)))
@@ -80,28 +81,28 @@ class Estimator:
                 # print("z: {}".format(self.z_hat))
                 # print("x_hat: {}".format(self.x_hat))
                 x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self._z_pred())
-                P -= Sigma_xz @ inv_Sigma_zz @ Sigma_xz.transpose()
+                P -= Sigma_xz @ inv_Sigma_zz @ Sigma_xz.T
             self.x_hat.append(x_hat)
             self.P.append(P)
 
     def _Sigma_xx(self):
         k = self.current_step
-        return self.params.A @ self.P[k - 1] @ self.params.A.transpose() + self.params.Q
+        return self.params.A @ self.P[k - 1] @ self.params.A.T + self.params.Q
 
     def _Sigma_xz(self):
         k = self.current_step
-        Sigma_xz = self.params.A @ self.P[k - 1] @ self.params.H.transpose() + self.params.Q
+        Sigma_xz = self.params.A @ self.P[k - 1] @ self.params.H.T + self.params.Q
         if self.delta[k - 1] == 0:
-            Sigma_xz += self.params.A @ self.sigma[k - 1] @ self.params.L.transpose()
+            Sigma_xz += self.params.A @ self.sigma[k - 1] @ self.params.L.T
         return Sigma_xz
 
     def _Sigma_zz(self):
         k = self.current_step
-        Sigma_zz = self.params.H @ self.P[k - 1] @ self.params.H.transpose() + self.params.Q
+        Sigma_zz = self.params.H @ self.P[k - 1] @ self.params.H.T + self.params.Q
         if self.delta[k - 1] == 0:
-            tmp = self.params.H @ self.sigma[k - 1] @ self.params.L.transpose()
-            Sigma_zz += tmp + tmp.transpose()
-            Sigma_zz += self.params.L @ self.P_z[k - 1] @ self.params.L.transpose()
+            tmp = self.params.H @ self.sigma[k - 1] @ self.params.L.T
+            Sigma_zz += tmp + tmp.T
+            Sigma_zz += self.params.L @ self.P_z[k - 1] @ self.params.L.T
         return Sigma_zz
 
     def _z_pred(self):
