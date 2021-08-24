@@ -1,7 +1,7 @@
 import numpy as np
 from system_param import SystemParam, create_random_system
 from sensor import SensorMessage, Sensor, RandomSensor
-from estimator import Estimator
+from estimator import Estimator, Estimator2
 from plot import plot_traj
 
 
@@ -36,7 +36,8 @@ def run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e):
 
         # update user
         if gamma_u[k] == 0:
-            user.update(None, delta)  # it should not know delta
+            user.update(None)
+            # user.update(None, delta)  # it should not know delta
         else:
             user.update(msg)
 
@@ -53,14 +54,14 @@ def run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e):
 
 def test():
     dim = 1
-    num_steps = 10
+    num_steps = 100
 
     params = create_random_system(dim=dim, stable=True)
 
     # sensor = Sensor(params)
     sensor = RandomSensor(params, probability_send_state=0.1)
 
-    user = Estimator(params)
+    user = Estimator2(params)
     eavesdropper = Estimator(params)
 
     lambda_u = 0.5
