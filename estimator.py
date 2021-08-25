@@ -2,6 +2,8 @@ import numpy as np
 from numpy.linalg import matrix_power as mpow
 from system_param import SystemParam
 from sensor import SensorMessage
+
+
 # todo: Problem: z_hat and P_z need delta[k-1] in the case gamma[k]=0!
 
 
@@ -56,28 +58,38 @@ class Estimator2:
         # update estimates
         k = self.current_step
 
-        if gamma_k == 0:  # dropout
+        if gamma_k == 0:  # dropout -- scenario 1
             self.x_hat.append(self.params.A @ self.x_hat[k - 1])
             self.P.append(self.params.A @ self.P[k - 1] @ self.params.A.T + self.params.Q)
             self.exact.append(False)
-        elif a == 1:  # received plain state
+        elif a == 1:  # received plain state -- scenario 2
             self.x_hat.append(z)
             self.P.append(np.zeros((self.params.dim, self.params.dim)))
             self.exact.append(True)
         else:  # received state-secrecy code
-            if self.exact[ref_time]:  # we can recover x exactly from the code
+            if self.exact[ref_time]:  # we can recover x exactly from the code -- scenario 3
                 self.x_hat.append(z + mpow(self.params.L, k - ref_time) @ self.x_hat[ref_time])
                 self.P.append(np.zeros((self.params.dim, self.params.dim)))
                 self.exact.append(True)
             else:
-                rev = np.array(self.exact)[:ref_time][::-1]
+                exact = np.array(self.exact)
+                rev = exact[:ref_time][::-1]
                 step = len(rev) - np.argmax(rev) - 1  # idx of latest exact x before ref_time
-                x_k, P_k = self._calc_estimate(self.x_hat[step], z, k - step, ref_time - step)
+                if not (exact[ref_time:k]).any():  # scenario 4
+                    # print("scenario 4")
+                    x_k, P_k = self._calc_estimate_scenario4(self.x_hat[step], z, k - step, ref_time - step)
+                else:  # scenario 5
+                    # print("scenario 5")
+                    # find the nearest exact x after ref_time
+                    m = np.argmax(exact[ref_time:k]) + ref_time
+                    x0 = self.x_hat[step]
+                    xm = self.x_hat[m]
+                    x_k, P_k = self._calc_estimate_scenario5(x0, xm, z, k - step, ref_time - step, m - step)
                 self.x_hat.append(x_k)
                 self.P.append(P_k)
                 self.exact.append(False)
 
-    def _calc_estimate(self, x0, z, k, t_k):
+    def _calc_estimate_scenario4(self, x0, z, k, t_k):
         """
         Given the last exact state estimate is x_0, calculate the estimate for x_k and P_k.
 
@@ -95,13 +107,13 @@ class Estimator2:
         """
         x_expec = mpow(self.params.A, k) @ x0
         z_expec = x_expec - mpow(self.params.L, k - t_k) @ mpow(self.params.A, t_k) @ x0
-        sigma_xx, sigma_xz, sigma_zz = self._sigmas(k, t_k)
+        sigma_xx, sigma_xz, sigma_zz = self._sigmas_scenario4(k, t_k)
         sigma_zz = np.linalg.inv(sigma_zz)
         x_k = x_expec + sigma_xz @ sigma_zz @ (z - z_expec)
-        P_k = sigma_xx + sigma_xz @ sigma_zz @ sigma_xz.T
+        P_k = sigma_xx - sigma_xz @ sigma_zz @ sigma_xz.T
         return x_k, P_k
 
-    def _sigmas(self, k, t_k):
+    def _sigmas_scenario4(self, k, t_k):
         """
         Given the last exact state estimate is x_0, calculate Sigma_{k, xx}, Sigma_{k,xz} and Sigma_{k, zz}.
 
@@ -117,22 +129,10 @@ class Estimator2:
         tuple[np.ndarray]
             Sigma_xx, Sigma_xz, Sigma_zz
         """
-        sigma1 = np.copy(self.params.Q)
-        tmp = np.copy(self.params.Q)
-        for _ in range(k - t_k - 1):
-            tmp = self.params.A @ tmp @ self.params.A.T
-            sigma1 += tmp
-
-        sigma_xx = np.copy(sigma1)
-        for _ in range(t_k):
-            tmp = self.params.A @ tmp @ self.params.A.T
-            sigma_xx += tmp
-
-        sigma2 = np.copy(self.params.Q)
-        tmp = np.copy(self.params.Q)
-        for _ in range(t_k - 1):
-            tmp = self.params.A @ tmp @ self.params.A.T
-            sigma2 += tmp
+        # note: this is ineffient, same powers of A are calculated multiple times
+        sigma_xx = self._sum_AQA(k)
+        sigma1 = self._sum_AQA(k - t_k)
+        sigma2 = self._sum_AQA(t_k)
 
         A = mpow(self.params.A, k - t_k)
         H = A - mpow(self.params.L, k - t_k)
@@ -140,6 +140,85 @@ class Estimator2:
         sigma_xz = sigma1 + A @ sigma2 @ H.T
         sigma_zz = sigma1 + H @ sigma2 @ H.T
         return sigma_xx, sigma_xz, sigma_zz
+
+    def _calc_estimate_scenario5(self, x0, xm, z, k, t_k, m):
+        """
+
+        Parameters
+        ----------
+        x0 : np.ndarray
+        xm : np.ndarray
+        z : np.ndarray
+        k : int
+        t_k : int
+        m : int
+
+        Returns
+        -------
+        tuple[np.ndarray]
+            x_k, P_k
+        """
+        # note: all these calculations are very inefficient!!!
+
+        w_hat = [self._w_hat(x0, xm, i, m) for i in range(t_k)]
+
+        x_expec = mpow(self.params.A, k - m) @ xm
+        z_expec = np.sum([mpow(self.params.A, j - 1) @ w_hat[t_k - j] for j in range(1, t_k + 1)], axis=0)
+        z_expec = x_expec - mpow(self.params.L, k - t_k) @ (mpow(self.params.A, t_k) @ x0 + z_expec)
+
+        sigma_xx = self._sum_AQA(k - m)
+        sigma_xz = sigma_xx
+
+        sigma_zz = np.sum([mpow(self.params.A, j - 1) @ (self.params.Q + np.outer(w_hat[t_k - j], w_hat[t_k - j])) @
+                           mpow(self.params.A, j - 1).T for j in range(1, t_k + 1)], axis=0)
+        sigma_zz = sigma_xx + mpow(self.params.L, k - t_k) @ sigma_zz @ mpow(self.params.L, k - t_k).T
+
+        sigma_zz = np.linalg.inv(sigma_zz)
+        x_k = x_expec + sigma_xz @ sigma_zz @ (z - z_expec)
+        P_k = sigma_xx - sigma_xz @ sigma_zz @ sigma_xz.T
+        return x_k, P_k
+
+    def _w_hat(self, x0, xm, k, m):
+        """
+        Calculate E[w_k | x0, xm] where 0 <= k < m-1
+
+        Parameters
+        ----------
+        x0 : np.ndarray
+        xm : np.ndarray
+        k : int
+        m : int
+
+        Returns
+        -------
+        np.ndarray
+        """
+        A = mpow(self.params.A, m - k - 1)
+        rhs = A @ self.params.Q @ A.T @ np.linalg.inv(self._sum_AQA(m)) @ (xm - mpow(self.params.A, m) @ x0)
+        # print(xm)
+        # print(mpow(self.params.A, m) @ x0)
+        return np.linalg.solve(A, rhs)
+
+    def _sum_AQA(self, k, start=1):
+        """
+        Calculate SUM_{j=k1}^k2 A^{j-1} Q (A^{j-1})^T
+
+        Parameters
+        ----------
+        k : int
+        start : int, optional
+
+        Returns
+        -------
+        np.ndarray
+        """
+        s = mpow(self.params.A, start - 1)
+        s = s @ self.params.Q @ s.T
+        tmp = np.copy(s)
+        for _ in range(k - start):
+            tmp = self.params.A @ tmp @ self.params.A.T
+            s += tmp
+        return s
 
 
 class Estimator:
@@ -276,7 +355,7 @@ class Estimator:
         else:
             P_z = self.params.L @ self.P[k - 1] @ self.params.L.T
             if self.delta[k - 1] == 0:
-                P_z += self.params.L @ (self.P_z[k - 1] + self.sigma[k - 1] + self.sigma[k - 1].T)\
+                P_z += self.params.L @ (self.P_z[k - 1] + self.sigma[k - 1] + self.sigma[k - 1].T) \
                        @ self.params.L.T
         self.P_z.append(P_z)
 
