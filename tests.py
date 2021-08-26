@@ -190,7 +190,7 @@ class TestEstimator(TestCase):
         self.assertTrue(np.allclose(self.estimator.P[-1], P_est))
         self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
 
-    def test_after_critical_event_2(self): # scenario 4
+    def test_after_critical_event_2(self):  # scenario 4
         # k = 1: critical event
         # k = 2 dropout
         # k = 3: successful reception of state-secrecy code
@@ -293,6 +293,7 @@ class TestEstimator(TestCase):
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
         self.estimator2.update(msg)
+        self.rsensor.update_reference_time(1)
 
         # k=3
         self.rsensor.update()
