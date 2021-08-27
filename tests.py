@@ -1,7 +1,7 @@
 from unittest import TestCase
 import numpy as np
 from sensor import SensorMessage, Sensor, RandomSensor
-from estimator import Estimator, Estimator2
+from estimator import Estimator, Estimator2, Estimator3
 from system_param import create_random_system, SystemParam
 
 
@@ -53,8 +53,8 @@ class TestSensor(TestCase):
 class TestEstimator(TestCase):
     def setUp(self):
         self.params = create_random_system(dim=1, stable=True)
-        self.estimator = Estimator(self.params)
-        self.estimator2 = Estimator2(self.params)
+        self.estimator = Estimator3(self.params)
+        # self.estimator2 = Estimator2(self.params)
         self.rsensor = RandomSensor(self.params, probability_send_state=1)
 
     # def test_format(self):
@@ -76,9 +76,9 @@ class TestEstimator(TestCase):
     def test_dropout(self):  # scenario 1
         # test values for 2 steps
         self.rsensor.update()
-        self.estimator2.update(None)
+        self.estimator.update(None)
         self.rsensor.update()
-        self.estimator2.update(None)
+        self.estimator.update(None)
 
         x0 = self.params.x0
         A = self.params.A
@@ -87,18 +87,18 @@ class TestEstimator(TestCase):
         P_est = [np.zeros((self.params.dim, self.params.dim)),
                  Q,
                  A @ Q @ A.T + Q]
-        self.assertTrue(np.allclose(x_est, self.estimator2.x_hat))
-        self.assertTrue(np.allclose(P_est, self.estimator2.P))
+        self.assertTrue(np.allclose(x_est, self.estimator.x_hat))
+        self.assertTrue(np.allclose(P_est, self.estimator.P))
 
         # test behavior in limit
         for i in range(1000):
             self.rsensor.update()
-            self.estimator2.update(None)
-            if np.linalg.norm(self.estimator2.P[-1] - self.estimator2.P[-2], ord=np.inf) < 1e-8:
+            self.estimator.update(None)
+            if np.linalg.norm(self.estimator.P[-1] - self.estimator.P[-2], ord=np.inf) < 1e-8:
                 break
 
-        P_last = self.estimator2.P[-1]
-        x_last = self.estimator2.x_hat[-1]
+        P_last = self.estimator.P[-1]
+        x_last = self.estimator.x_hat[-1]
         self.assertTrue(np.allclose(P_last, A @ P_last @ A.T + Q))
         self.assertTrue(np.allclose(x_last, np.zeros(self.params.dim), atol=1e-3))
 
@@ -109,10 +109,10 @@ class TestEstimator(TestCase):
         for k in range(num_it):
             self.rsensor.update()
             msg = self.rsensor.send_code()
-            self.estimator2.update(msg)
+            self.estimator.update(msg)
 
-        self.assertTrue(np.allclose(self.rsensor.x_trajectory, self.estimator2.x_hat_trajectory))
-        self.assertAlmostEqual(np.max(np.abs(self.estimator2.P_trajectory)), 0)
+        self.assertTrue(np.allclose(self.rsensor.x_trajectory, self.estimator.x_hat_trajectory))
+        self.assertAlmostEqual(np.max(np.abs(self.estimator.P_trajectory)), 0)
 
     def test_recover_from_code(self):  # scenario 3
         # recover the correct exact from state-secrecy code in the following setting:
@@ -126,7 +126,7 @@ class TestEstimator(TestCase):
         msg = self.rsensor.send_code()
         # print(msg)
         self.estimator.update(msg)
-        self.estimator2.update(msg)
+        # self.estimator2.update(msg)
         self.rsensor.update_reference_time(1)
 
         # k = 2,...,m
@@ -134,27 +134,27 @@ class TestEstimator(TestCase):
         for k in range(num_it):
             self.rsensor.update()
             delta = 0 if k > 0 else 1
-            self.estimator.update(None, delta)
-            self.estimator2.update(None)
+            self.estimator.update(None)
+            # self.estimator2.update(None)
 
         # k = m + 1
         self.rsensor.update()
         msg = self.rsensor.send_code()
         # print(msg)
         self.estimator.update(msg)
-        self.estimator2.update(msg)
+        # self.estimator2.update(msg)
 
         # print(self.rsensor.x_trajectory)
         # print(self.estimator.x_hat_trajectory)
         # print(self.estimator2.x_hat_trajectory)
         self.assertTrue(np.allclose(self.rsensor.x[1], self.estimator.x_hat[1], atol=1e-3, rtol=1e-3))
-        self.assertTrue(np.allclose(self.rsensor.x[1], self.estimator2.x_hat[1], atol=1e-3, rtol=1e-3))
+        # self.assertTrue(np.allclose(self.rsensor.x[1], self.estimator2.x_hat[1], atol=1e-3, rtol=1e-3))
         self.assertTrue(np.allclose(self.rsensor.x[-1], self.estimator.x_hat[-1], atol=1e-3, rtol=1e-3))
-        self.assertTrue(np.allclose(self.rsensor.x[-1], self.estimator2.x_hat[-1], atol=1e-3, rtol=1e-3))
+        # self.assertTrue(np.allclose(self.rsensor.x[-1], self.estimator2.x_hat[-1], atol=1e-3, rtol=1e-3))
         self.assertTrue(np.allclose(self.estimator.P[1], np.zeros((self.params.dim, self.params.dim))))
-        self.assertTrue(np.allclose(self.estimator2.P[1], np.zeros((self.params.dim, self.params.dim))))
+        # self.assertTrue(np.allclose(self.estimator2.P[1], np.zeros((self.params.dim, self.params.dim))))
         self.assertTrue(np.allclose(self.estimator.P[-1], np.zeros((self.params.dim, self.params.dim))))
-        self.assertTrue(np.allclose(self.estimator2.P[-1], np.zeros((self.params.dim, self.params.dim))))
+        # self.assertTrue(np.allclose(self.estimator2.P[-1], np.zeros((self.params.dim, self.params.dim))))
 
     def test_after_critical_event(self):  # scenario 4
         # k=1: critical event
@@ -163,16 +163,16 @@ class TestEstimator(TestCase):
 
         # k=1: critical event
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
         self.rsensor.update_reference_time(1)
 
         # k=2: receive state-secrecy code
         self.rsensor.update()
         msg = self.rsensor.send_code()
         # print(msg)
-        self.estimator.update(msg, delta=1)
-        self.estimator2.update(msg)
+        self.estimator.update(msg)
+        # self.estimator2.update(msg)
 
         A = self.params.A
         H = self.params.H
@@ -186,9 +186,9 @@ class TestEstimator(TestCase):
         P_est = sigma_xx - sigma_xz @ np.linalg.inv(sigma_zz) @ sigma_xz.T
 
         self.assertTrue(np.allclose(self.estimator.x_hat_trajectory[-1, :], x_est))
-        self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
+        # self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
         self.assertTrue(np.allclose(self.estimator.P[-1], P_est))
-        self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
+        # self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
 
     def test_after_critical_event_2(self):  # scenario 4
         # k = 1: critical event
@@ -200,20 +200,20 @@ class TestEstimator(TestCase):
 
         # k=1
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
         self.rsensor.update_reference_time(1)
 
         # k=2
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
 
         # k=3
         self.rsensor.update()
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
-        self.estimator2.update(msg)
+        # self.estimator2.update(msg)
 
         A = self.params.A
         L = self.params.L
@@ -227,9 +227,9 @@ class TestEstimator(TestCase):
         P_est = sigma_xx - sigma_xz @ np.linalg.inv(sigma_zz) @ sigma_xz.T
 
         self.assertTrue(np.allclose(self.estimator.x_hat_trajectory[-1, :], x_est))
-        self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
+        # self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
         self.assertTrue(np.allclose(self.estimator.P[-1], P_est))
-        self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
+        # self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
 
     def test_after_critical_event_3(self):  # scenario 4
         # k = 1: dropout + critical event
@@ -241,21 +241,21 @@ class TestEstimator(TestCase):
 
         # k=1
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
         self.rsensor.update_reference_time(1)
 
         # k=2
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
         self.rsensor.update_reference_time(1)
 
         # k=3
         self.rsensor.update()
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
-        self.estimator2.update(msg)
+        # self.estimator2.update(msg)
 
         A = self.params.A
         L = self.params.L
@@ -270,13 +270,13 @@ class TestEstimator(TestCase):
         P_est = sigma_xx - sigma_xz @ np.linalg.inv(sigma_zz) @ sigma_xz.T
 
         self.assertTrue(np.allclose(self.estimator.x_hat_trajectory[-1, :], x_est))
-        self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
+        # self.assertTrue(np.allclose(self.estimator2.x_hat_trajectory[-1, :], x_est))
         self.assertTrue(np.allclose(self.estimator.P[-1], P_est))
-        self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
+        # self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
 
     def test_after_critical_event_blabla(self):  # not a real test
         # k = 1: dropout + critical event
-        # k = 2: successful reception
+        # k = 2: successful reception, attack
         # k = 3: successful reception
 
         self.rsensor.alpha = 0
@@ -290,27 +290,39 @@ class TestEstimator(TestCase):
 
         # k=2
         self.rsensor.update()
-        msg = self.rsensor.send_code()
-        self.estimator.update(msg)
-        self.estimator2.update(msg)
-        self.rsensor.update_reference_time(1)
+        z_2 = self.rsensor.send_code()
+        self.estimator.update(z_2, delta=1)
+        self.estimator2.update(z_2)
+        # self.rsensor.update_reference_time(1)  # attack!
 
         # k=3
         self.rsensor.update()
-        msg = self.rsensor.send_code()
-        self.estimator.update(msg)
-        self.estimator2.update(msg)
+        z_3 = self.rsensor.send_code()
+        self.estimator.update(z_3, delta=0)
+        self.estimator2.update(z_3)
 
-        x_est = x_estimate(self.params, x0, msg.z, 3, 1)
+        # x_est = x_estimate(self.params, x0, msg.z, 3, 1)
         # print(x_est)
+        A = self.params.A
+        L = self.params.L
+        Q = self.params.Q
+        H = self.params.H
+        x0 = self.params.x0
+
+        w0_hat = H @ Q @ H.T @ np.linalg.inv(Q + H @ Q @ H.T) @ (z_2.z - H @ A @ x0)
+        w0_hat = np.linalg.solve(H, w0_hat)
+        zpred = A @ self.estimator.x_hat[2] - L @ L @ (A @ x0 + w0_hat)
+        print(zpred)
+
 
         x_hat = self.estimator.x_hat_trajectory
-        print(x_hat)
-        print(self.estimator2.x_hat_trajectory)
-        print(self.rsensor.x_trajectory)
-        print()
-        print(self.estimator.P_trajectory)
-        print(self.estimator2.P_trajectory)
+
+        # print(x_hat)
+        # print(self.estimator2.x_hat_trajectory)
+        # print(self.rsensor.x_trajectory)
+        # print()
+        # print(self.estimator.P_trajectory)
+        # print(self.estimator2.P_trajectory)
 
     def test_after_critical_event_4(self):  # scenario 5
         # k = 1: dropout + critical event
@@ -320,8 +332,8 @@ class TestEstimator(TestCase):
 
         # k=1
         self.rsensor.update()
-        self.estimator.update(None, delta=1)
-        self.estimator2.update(None)
+        self.estimator.update(None)
+        # self.estimator2.update(None)
         self.rsensor.update_reference_time(1)
 
         # k=2
@@ -329,14 +341,14 @@ class TestEstimator(TestCase):
         self.rsensor.alpha = 1
         msg = self.rsensor.send_code()
         self.rsensor.alpha = 0
-        self.estimator.update(msg, delta=1)
-        self.estimator2.update(msg)
+        self.estimator.update(msg)
+        # self.estimator2.update(msg)
 
         # k=3
         self.rsensor.update()
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
-        self.estimator2.update(msg)
+        # self.estimator2.update(msg)
 
         A = self.params.A
         L = self.params.L
@@ -353,10 +365,12 @@ class TestEstimator(TestCase):
         x_est_true = A @ x2 + sigma_xz @ np.linalg.inv(sigma_zz) @ (msg.z - expec_z)
         P_est = sigma_xx - sigma_xz @ np.linalg.inv(sigma_zz) @ sigma_xz.T
 
-        # self.assertTrue(np.allclose(self.estimator.x_hat[-1], x_est_true))  # doesnt work
-        self.assertTrue(np.allclose(self.estimator2.x_hat[-1], x_est_true))
-        # self.assertTrue(np.allclose(self.estimator.P[-1], P_est))  # doesnt work
-        self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
+        print(x_est_true)
+        print(self.estimator.x_hat)
+        self.assertTrue(np.allclose(self.estimator.x_hat[-1], x_est_true))  # doesnt work
+        # self.assertTrue(np.allclose(self.estimator2.x_hat[-1], x_est_true))
+        self.assertTrue(np.allclose(self.estimator.P[-1], P_est))  # doesnt work
+        # self.assertTrue(np.allclose(self.estimator2.P[-1], P_est))
 
     def test_after_critical_event_6(self):
         # k = 1: dropout + critical event

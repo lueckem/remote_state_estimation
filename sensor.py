@@ -4,7 +4,7 @@ from collections import namedtuple
 from system_param import SystemParam
 
 
-SensorMessage = namedtuple("SensorMessage", "z ref_time")
+SensorMessage = namedtuple("SensorMessage", "z ref_time a")
 
 
 class Sensor:
@@ -61,9 +61,8 @@ class Sensor:
         """
         k = self.current_step
         self.a.append(0)
-        ref_time = self.reference_time
-        return SensorMessage(self.x[-1] - mpow(self.params.L, k - self.reference_time) @ self.x[ref_time],
-                             ref_time)
+        t_k = self.reference_time
+        return SensorMessage(self.x[-1] - mpow(self.params.L, k - t_k) @ self.x[t_k], t_k, 0)
 
     def update_reference_time(self, ack):
         """
@@ -98,11 +97,10 @@ class RandomSensor(Sensor):
         SensorMessage
         """
         k = self.current_step
+        t_k = self.reference_time
         if np.random.binomial(1, self.alpha) == 1:
             self.a.append(1)
-            return SensorMessage(self.x[-1], -1)
+            return SensorMessage(self.x[-1], t_k, 1)
 
         self.a.append(0)
-        ref_time = self.reference_time
-        return SensorMessage(self.x[-1] - mpow(self.params.L, k - self.reference_time) @ self.x[ref_time],
-                             ref_time)
+        return SensorMessage(self.x[-1] - mpow(self.params.L, k - t_k) @ self.x[t_k], t_k, 0)
