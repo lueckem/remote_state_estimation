@@ -18,7 +18,7 @@ class Sensor:
         """
         self.params = params
         self.x = [params.x0]
-        self.w = [np.zeros(self.params.dim)]  # noise       # todo: should w and a start empty?
+        self.w = [np.zeros(self.params.dim)]  # noise
         self.a = [0]  # 1 if state was sent, 0 if code was sent
         self.reference_time = 0
         self.current_step = 0  # idx of the current step
@@ -104,3 +104,55 @@ class RandomSensor(Sensor):
 
         self.a.append(0)
         return SensorMessage(self.x[-1] - mpow(self.params.L, k - t_k) @ self.x[t_k], t_k, 0)
+
+
+class ThresholdSensor(Sensor):
+    def __init__(self, params, threshold, lambda_u, p):
+        """
+        Sensor that transmits the plain state if the belief of critical event exceeds the threshold.
+
+        Parameters
+        ----------
+        params : SystemParam
+        threshold : float
+        lambda_u : float
+            probability of successful reception
+        p : float
+            attack probability
+        """
+        super().__init__(params)
+        self.threshold = threshold
+        self.belief = 0  # belief of probability of critical event
+        self.c = lambda_u * (1 - p) / (lambda_u * (1 - p) + (1 - lambda_u) * p)
+
+    def send_code(self):
+        """
+        Randomly send state-secrecy code or plain system state.
+
+        Returns
+        -------
+        SensorMessage
+        """
+        k = self.current_step
+        t_k = self.reference_time
+        if self.belief > self.threshold:
+            self.a.append(1)
+            return SensorMessage(self.x[-1], t_k, 1)
+
+        self.a.append(0)
+        return SensorMessage(self.x[-1] - mpow(self.params.L, k - t_k) @ self.x[t_k], t_k, 0)
+
+    def update_reference_time(self, ack):
+        """
+        Update reference time and belief.
+
+        Parameters
+        ----------
+        ack : int
+        """
+        if ack == 1:
+            self.reference_time = self.current_step
+            if self.a[self.current_step] == 0:
+                self.belief = self.c * self.belief + (1 - self.c)
+            else:
+                self.belief = self.c

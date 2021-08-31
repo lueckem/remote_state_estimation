@@ -66,47 +66,6 @@ def test():
     # plot_traj(sensor, user, eavesdropper, e)
 
 
-def random_sensor_different_alpha():
-    num_steps = 10000
-
-    A = np.array([[0.9]])
-    Q = np.array([[1.0]])
-    L = np.array([[1.0 / 0.9]])
-
-    params = SystemParam(A, Q, L)
-    lambda_u = 0.7
-    lambda_e = 0.7
-    p = 0.1
-    alphas = np.linspace(0, 1, 21)
-
-    err_u = []
-    err_e = []
-
-    for alpha in alphas:
-        sensor = RandomSensor(params, probability_send_state=alpha)
-        user = Estimator(params)
-        eavesdropper = Estimator(params)
-
-        gamma_u = np.random.binomial(1, lambda_u, num_steps)
-        gamma_e = np.random.binomial(1, lambda_e, num_steps)
-        e = np.random.binomial(1, p, num_steps)
-        run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e)
-
-        err_u.append(user.mean_error)
-        err_e.append(eavesdropper.mean_error)
-
-    print(err_u)
-    print(err_e)
-    plt.plot(alphas, err_u)
-    plt.plot(alphas, err_e)
-    plt.grid()
-    plt.show()
-
-    plt.plot(alphas, np.array(err_u) / np.array(err_e))
-    plt.show()
-
-
 if __name__ == '__main__':
-    # test()
-    random_sensor_different_alpha()
+    test()
 

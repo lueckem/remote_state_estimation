@@ -52,7 +52,6 @@ class TestSensor(TestCase):
         self.assertEqual(a, 1)
 
 
-# todo: add tests for updating deltas, sigmas, z, Pz, after dropouts
 class TestEstimator(TestCase):
     def setUp(self):
         self.params = create_random_system(dim=2, stable=True)
@@ -138,7 +137,6 @@ class TestEstimator(TestCase):
         self.assertFalse(np.isnan(self.estimator.z_hat_trajectory[5:, :]).any())
         self.assertTrue(np.isnan(self.estimator.Pz_trajectory[1:5, :, :]).all())
         self.assertFalse(np.isnan(self.estimator.Pz_trajectory[5:, :]).any())
-
 
     def test_plain(self):
         # only send plain state -> x_hat = x
