@@ -31,8 +31,20 @@ class Estimator:
         return np.vstack(self.x_hat)
 
     @property
+    def z_hat_trajectory(self):
+        return np.vstack(self.z_hat)
+
+    @property
     def P_trajectory(self):
         return np.stack(self.P, axis=0)
+
+    @property
+    def Pz_trajectory(self):
+        return np.stack(self.P_z, axis=0)
+
+    @property
+    def mean_error(self):
+        return np.mean(np.trace(self.P_trajectory, axis1=1, axis2=2))
 
     def update(self, msg):
         """
@@ -45,11 +57,11 @@ class Estimator:
         """
         self.current_step += 1
         k = self.current_step
-        self.x_hat.append(None)  # todo: use np.NAN instead of None?
-        self.P.append(None)
-        self.z_hat.append(None)
-        self.P_z.append(None)
-        self.sigma.append(None)
+        self.x_hat.append(np.full(self.params.dim, np.nan))
+        self.P.append(np.full((self.params.dim, self.params.dim), np.nan))
+        self.z_hat.append(np.full(self.params.dim, np.nan))
+        self.P_z.append(np.full((self.params.dim, self.params.dim), np.nan))
+        self.sigma.append(np.full((self.params.dim, self.params.dim), np.nan))
         self.z.append(msg)
 
         # unpack the message
@@ -77,7 +89,7 @@ class Estimator:
                 if self.z[m] is None:  # todo: if z_hat[m] != None, we dont have to update again
                     a2, z2 = None, None
                 else:
-                    z2, _, a2 = self.z[m]
+                    z2, ref2, a2 = self.z[m]
                 self._update_P_and_z(m, a2, z2)
                 # print(k, m)
                 self._update_sigma(m)
@@ -136,10 +148,6 @@ class Estimator:
             z_hat = z
             Pz = np.zeros((self.params.dim, self.params.dim))
         else:
-            # print(self.current_step)
-            # print(k)
-            # print(self.delta)
-            # print('')
             z_hat = self._z_pred(k)
             Pz = self._Sigma_zz(k)
 
@@ -237,7 +245,6 @@ class Estimator:
         np.ndarray
         """
         z_pred = self.params.H @ self.x_hat[k - 1]
-        # (k, self.delta)
         if self.delta[k - 1] == 0:
             z_pred += self.params.L @ self.z_hat[k - 1]
         return z_pred

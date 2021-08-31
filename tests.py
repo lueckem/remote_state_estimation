@@ -104,6 +104,42 @@ class TestEstimator(TestCase):
         self.assertTrue(np.allclose(P_last, A @ P_last @ A.T + Q))
         self.assertTrue(np.allclose(x_last, np.zeros(self.params.dim), atol=1e-3))
 
+    def test_update_delta(self):
+        # test if delta, hat_z, P_z are updated after dropouts
+
+        # some dropouts
+        for i in range(3):
+            self.rsensor.update()
+            self.estimator.update(None)
+
+        # critical event
+        self.rsensor.update()
+        self.estimator.update(None)
+        self.rsensor.update_reference_time(1)
+
+        # some dropouts
+        for i in range(5):
+            self.rsensor.update()
+            self.estimator.update(None)
+
+        self.assertTrue(np.array([self.estimator.delta[k] is None for k in range(1, len(self.estimator.delta))]).all())
+        self.assertTrue(np.isnan(self.estimator.z_hat_trajectory[1:, :]).all())
+        self.assertTrue(np.isnan(self.estimator.Pz_trajectory[1:, :, :]).all())
+
+        # receive code
+        self.rsensor.update()
+        msg = self.rsensor.send_code()
+        self.estimator.update(msg)
+
+        self.assertTrue(np.array([self.estimator.delta[k] is None for k in range(1, 4)]).all())
+        self.assertTrue(self.estimator.delta[4] == 1)
+        self.assertTrue(np.array([self.estimator.delta[k] == 0 for k in range(5, 10)]).all())
+        self.assertTrue(np.isnan(self.estimator.z_hat_trajectory[1:5, :]).all())
+        self.assertFalse(np.isnan(self.estimator.z_hat_trajectory[5:, :]).any())
+        self.assertTrue(np.isnan(self.estimator.Pz_trajectory[1:5, :, :]).all())
+        self.assertFalse(np.isnan(self.estimator.Pz_trajectory[5:, :]).any())
+
+
     def test_plain(self):
         # only send plain state -> x_hat = x
         self.rsensor.alpha = 1
@@ -140,8 +176,6 @@ class TestEstimator(TestCase):
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
 
-        print(self.rsensor.x_trajectory)
-        print(self.estimator.x_hat_trajectory)
         self.assertTrue(np.allclose(self.rsensor.x[1], self.estimator.x_hat[1], atol=1e-3, rtol=1e-3))
         self.assertTrue(np.allclose(self.rsensor.x[-1], self.estimator.x_hat[-1], atol=1e-3, rtol=1e-3))
         self.assertTrue(np.allclose(self.estimator.P[1], np.zeros((self.params.dim, self.params.dim))))
@@ -288,3 +322,29 @@ class TestEstimator(TestCase):
 
         self.assertTrue(np.allclose(self.estimator.x_hat[-1], x_est))
         self.assertTrue(np.allclose(self.estimator.P[-1], P_est))
+
+    # def test_if_P_correct(self):
+    #     num_steps = 10
+    #     gamma = (np.random.random(num_steps) > 0.5).astype(int)
+    #     e = (np.random.random(num_steps) > 0.9).astype(int)
+    #     a = (np.random.random(num_steps) > 0.9).astype(int)
+    #
+    #     err = []
+    #
+    #     for _ in range(100):
+    #         self.estimator = Estimator(self.params)
+    #         self.rsensor = RandomSensor(self.params, probability_send_state=0)
+    #
+    #         for i in range(len(gamma)):
+    #             self.rsensor.update()
+    #             msg = None
+    #             if gamma[i] == 1:
+    #                 self.rsensor.probability_send_state = a[i]
+    #                 msg = self.rsensor.send_code()
+    #             self.estimator.update(msg)
+    #             delta = gamma[i] * (1 - e[i]) + (1 - gamma[i]) * e[i]
+    #             self.rsensor.update_reference_time(delta)
+    #
+    #         err.append(np.linalg.norm(self.estimator.x_hat[-1] - self.rsensor.x[-1]) ** 2)
+    #
+    #     print(np.mean(err), np.trace(self.estimator.P[-1]))
