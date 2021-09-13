@@ -8,14 +8,14 @@ from main import run_sim
 
 
 def random_sensor_different_alpha():
-    num_steps = 50000
+    num_steps = 5000
 
     A = np.array([[0.9]])
     Q = np.array([[1]])
     L = np.array([[1.0 / 0.9]])
 
     params = SystemParam(A, Q, L)
-    lambda_u = 0.7
+    lambda_u = 0.5
     lambda_e = 0.7
     p = 0.1
     alphas = np.linspace(0, 1, 51)
@@ -37,18 +37,32 @@ def random_sensor_different_alpha():
         err_u.append(user.mean_error)
         err_e.append(eavesdropper.mean_error)
 
-    np.save("erru1.npy", err_u)
-    np.save("erre1.npy", err_e)
+    np.save("alphas2.npy", alphas)
+    np.save("erru2.npy", err_u)
+    np.save("erre2.npy", err_e)
 
-    plt.plot(alphas, err_u)
-    plt.plot(alphas, err_e)
-    plt.grid()
-    plt.show()
 
-    plt.plot(alphas, np.array(err_u) / np.array(err_e))
+def plot_eval():
+    # lambda_u, lambda_e, p
+    # 1: 0.8, 0.8, 0.1
+    # 2: 0.6, 0.8, 0.1
+    # 3: 0.8, 0.6, 0.1
+    # 4: 0.8, 0.8, 0.2
+
+    alphas1 = np.load("alphas1.npy")
+    err_u1 = np.load("erru1.npy")
+    err_e1 = np.load("erre1.npy")
+
+    alphas2 = np.load("alphas2.npy")
+    err_u2 = np.load("erru2.npy")
+    err_e2 = np.load("erre2.npy")
+
+    plt.plot(alphas1, np.array(err_u1) / np.array(err_e1), '-x')
+    plt.plot(alphas2, np.array(err_u2) / np.array(err_e2), '-x')
     plt.grid()
     plt.show()
 
 
 if __name__ == '__main__':
-    random_sensor_different_alpha()
+    # random_sensor_different_alpha()
+    plot_eval()

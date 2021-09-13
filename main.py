@@ -38,32 +38,38 @@ def run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e):
 
 
 def test():
-    dim = 1
-    num_steps = 100
+    num_steps = 40
 
-    params = create_random_system(dim=dim, stable=True)
+    # dim = 1
+    # params = create_random_system(dim=dim, stable=True)
 
-    # sensor = Sensor(params)
-    sensor = RandomSensor(params, probability_send_state=0.1)
+    A = np.array([[0.9]])
+    Q = np.array([[1]])
+    L = np.array([[1.0 / 0.9]])
 
+    params = SystemParam(A, Q, L)
+    lambda_u = 0.7
+    lambda_e = 0.7
+    alpha = 0.1
+    p = 0.1
+
+    sensor = RandomSensor(params, probability_send_state=alpha)
     user = Estimator(params)
     eavesdropper = Estimator(params)
-
-    lambda_u = 0.5
-    lambda_e = 0.5
-    p = 0.1
 
     gamma_u = np.random.binomial(1, lambda_u, num_steps)
     gamma_e = np.random.binomial(1, lambda_e, num_steps)
     e = np.random.binomial(1, p, num_steps)
+    gamma_u[23] = 0
+    e[23] = 1
     run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e)
 
-    print(user.mean_error)
-    print(eavesdropper.mean_error)
+    # print(user.mean_error)
+    # print(eavesdropper.mean_error)
     # print(sensor.x_trajectory)
     # print(sensor.w_trajectory)
     # print(sensor.a_trajectory)
-    # plot_traj(sensor, user, eavesdropper, e)
+    plot_traj(sensor, user, eavesdropper, e)
 
 
 if __name__ == '__main__':

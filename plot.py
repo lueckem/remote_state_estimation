@@ -55,5 +55,5 @@ def plot_traj(sensor, user, eavesdropper, e):
     ax3.set_yticks([-0.5, 0.5, 1.5, 2.5, 3.5], minor=True)
     ax3.grid(which='minor')
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-    # plt.savefig('traj.png', dpi=300)
+    plt.savefig('traj.png', dpi=300)
     plt.show()
