@@ -123,7 +123,7 @@ class ThresholdSensor(Sensor):
         super().__init__(params)
         self.threshold = threshold
         self.belief = 0  # belief of probability of critical event
-        self.c = lambda_u * (1 - p) / (lambda_u * (1 - p) + (1 - lambda_u) * p)
+        self.c = (1 - lambda_u) * p / (lambda_u * (1 - p) + (1 - lambda_u) * p)
 
     def send_code(self):
         """
@@ -153,6 +153,6 @@ class ThresholdSensor(Sensor):
         if ack == 1:
             self.reference_time = self.current_step
             if self.a[self.current_step] == 0:
-                self.belief = self.c * self.belief + (1 - self.c)
+                self.belief = self.c + self.belief * (1 - self.c)
             else:
                 self.belief = self.c

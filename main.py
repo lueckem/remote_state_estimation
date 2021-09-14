@@ -1,6 +1,6 @@
 import numpy as np
 from system_param import SystemParam, create_random_system
-from sensor import SensorMessage, Sensor, RandomSensor
+from sensor import SensorMessage, Sensor, RandomSensor, ThresholdSensor
 from estimator import Estimator
 from plot import plot_traj
 from matplotlib import pyplot as plt
@@ -53,7 +53,8 @@ def test():
     alpha = 0.1
     p = 0.1
 
-    sensor = RandomSensor(params, probability_send_state=alpha)
+    # sensor = RandomSensor(params, probability_send_state=alpha)
+    sensor = ThresholdSensor(params, 0.8, lambda_u, p)
     user = Estimator(params)
     eavesdropper = Estimator(params)
 

@@ -130,6 +130,8 @@ class TestEstimator(TestCase):
         msg = self.rsensor.send_code()
         self.estimator.update(msg)
 
+        print(self.estimator.z_hat)
+
         self.assertTrue(np.array([self.estimator.delta[k] is None for k in range(1, 4)]).all())
         self.assertTrue(self.estimator.delta[4] == 1)
         self.assertTrue(np.array([self.estimator.delta[k] == 0 for k in range(5, 10)]).all())

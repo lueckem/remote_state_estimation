@@ -86,7 +86,9 @@ class Estimator:
             # print(k)
             # update the past values up to k - 1
             for m in range(ref_time + 1, k):
-                if self.z[m] is None:  # todo: if z_hat[m] != None, we dont have to update again
+                if not np.isnan(self.z_hat[m][0]):  # if z_h hat[m] != None, we dont have to update again
+                    continue
+                if self.z[m] is None:
                     a2, z2 = None, None
                 else:
                     z2, ref2, a2 = self.z[m]
