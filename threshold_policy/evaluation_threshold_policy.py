@@ -8,7 +8,7 @@ from scipy.signal import savgol_filter
 
 
 def sensor_different_threshold():
-    num_steps = 200000
+    num_steps = 100000
 
     A = np.array([[0.9]])
     Q = np.array([[1]])
@@ -25,7 +25,7 @@ def sensor_different_threshold():
 
     for threshold in thresholds:
         print(threshold)
-        sensor = ThresholdSensor(params, threshold, lambda_u, p)
+        sensor = ThresholdSensor(params, threshold, lambda_u, p=p)
         user = Estimator(params)
         eavesdropper = Estimator(params)
 
@@ -37,9 +37,9 @@ def sensor_different_threshold():
         err_u.append(user.mean_error)
         err_e.append(eavesdropper.mean_error)
 
-    np.save("thresholds4.npy", thresholds)
-    np.save("erru4.npy", err_u)
-    np.save("erre4.npy", err_e)
+    np.save("thresholds42.npy", thresholds)
+    np.save("erru42.npy", err_u)
+    np.save("erre42.npy", err_e)
 
 
 def plot_eval():
@@ -52,6 +52,8 @@ def plot_eval():
     thresholds1 = np.load("thresholds1.npy")
     err_u1 = np.load("erru1.npy")
     err_e1 = np.load("erre1.npy")
+    err_u1_wrongp = np.load("erru1_wrongp.npy")
+    err_e1_wrongp = np.load("erre1_wrongp.npy")
 
     thresholds2 = np.load("thresholds2.npy")
     err_u2 = np.load("erru2.npy")
@@ -67,19 +69,23 @@ def plot_eval():
 
     fig, ax = plt.subplots(figsize=(4.5, 3.5))
 
-    ax.plot(thresholds1, savgol_filter(np.array(err_u1) / np.array(err_e1), 51, 8), '-', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.8,0.1)$")
+    # ax.plot(thresholds1, savgol_filter(np.array(err_u1) / np.array(err_e1), 51, 8), '-', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.8,0.1)$")
     # ax.plot(thresholds2, savgol_filter(np.array(err_u2) / np.array(err_e2), 51, 8), linestyle=(0, (3, 1, 1, 1, 1, 1)), linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.6,0.8,0.1)$")
     # ax.plot(thresholds3, savgol_filter(np.array(err_u3) / np.array(err_e3), 51, 8), '--', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.6,0.1)$")
     # ax.plot(thresholds4, savgol_filter(np.array(err_u4) / np.array(err_e4), 51, 8), '-.', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.8,0.2)$")
 
-    plt.plot(thresholds1, np.array(err_u1) / np.array(err_e1), '-', label="1")
-    plt.plot(thresholds2, np.array(err_u2) / np.array(err_e2), '-', label="2")
-    plt.plot(thresholds3, np.array(err_u3) / np.array(err_e3), '-', label="3")
-    plt.plot(thresholds4, np.array(err_u4) / np.array(err_e4), '-', label="4")
+    idx = np.concatenate((np.arange(40), np.arange(40, 91, 2), np.arange(90, 101)))
+
+    ax.plot(thresholds1[idx], (np.array(err_u1) / np.array(err_e1))[idx], '-', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.8,0.1)$")
+    ax.plot(thresholds2[idx], (np.array(err_u2) / np.array(err_e2))[idx], linestyle=(0, (3, 1, 1, 1, 1, 1)), linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.6,0.8,0.1)$")
+    ax.plot(thresholds3[idx], (np.array(err_u3) / np.array(err_e3))[idx], '--', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.6,0.1)$")
+    ax.plot(thresholds4[idx], (np.array(err_u4) / np.array(err_e4))[idx], '-.', linewidth=2.5, label=r"$(\lambda_u,\lambda_e,p)=(0.8,0.8,0.2)$")
+    ax.plot(thresholds1[idx], (np.array(err_u1_wrongp) / np.array(err_e1_wrongp))[idx], '-', linewidth=2.5,
+            label=r"mismatched p")
 
     ax.grid()
     ax.legend()
-    ax.set_xlabel(r"$\alpha$")
+    ax.set_xlabel(r"$N$")
     ax.set_ylabel(r"$\varepsilon^u / \varepsilon^e$")
     ax.set_ylim([0, 2.5])
     plt.tight_layout()
