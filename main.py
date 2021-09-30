@@ -38,7 +38,7 @@ def run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e):
 
 
 def test():
-    num_steps = 40
+    num_steps = 60
 
     # dim = 1
     # params = create_random_system(dim=dim, stable=True)
@@ -48,21 +48,22 @@ def test():
     L = np.array([[1.0 / 0.9]])
 
     params = SystemParam(A, Q, L)
-    lambda_u = 0.7
+    params = create_random_system(4)
+    lambda_u = 0.2
     lambda_e = 0.7
-    alpha = 0.1
-    p = 0.1
+    alpha = 0.0
+    p = 0.0
 
-    # sensor = RandomSensor(params, probability_send_state=alpha)
-    sensor = ThresholdSensor(params, 0.8, lambda_u, p)
+    sensor = RandomSensor(params, probability_send_state=alpha)
+    # sensor = ThresholdSensor(params, 0.8, lambda_u, p)
     user = Estimator(params)
     eavesdropper = Estimator(params)
 
     gamma_u = np.random.binomial(1, lambda_u, num_steps)
     gamma_e = np.random.binomial(1, lambda_e, num_steps)
     e = np.random.binomial(1, p, num_steps)
-    gamma_u[23] = 0
-    e[23] = 1
+    # gamma_u[23] = 0
+    # e[23] = 1
     run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e)
 
     # print(user.mean_error)

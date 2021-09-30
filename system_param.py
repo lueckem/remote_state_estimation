@@ -45,6 +45,7 @@ class SystemParam:
         else:
             self.L = L
         self.H = self.A - self.L
+        self.trQ = np.trace(Q)
 
 
 def create_random_system(dim, stable=True):

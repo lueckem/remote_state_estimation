@@ -4,15 +4,21 @@ from system_param import SystemParam
 from sensor import SensorMessage
 
 
+# todo: rework update so that Sigma_xx, etc., are not calculated multiple times
+
+
 class Estimator:
-    def __init__(self, params):
+    def __init__(self, params, state_update=True):
         """
         Estimate the system state based on received information from the sensor.
 
         Parameters
         ----------
         params : SystemParam
+        state_update : bool, optional
+            state (x) update can be disabled to accelerate simulation of uncertainty P
         """
+        self.state_update = state_update
         self.params = params
 
         self.x_hat = [params.x0]  # x_hat[k,:] = E[x_k | I_k]
@@ -86,15 +92,13 @@ class Estimator:
             # print(k)
             # update the past values up to k - 1
             for m in range(ref_time + 1, k):
-                if not np.isnan(self.z_hat[m][0]):  # if z_h hat[m] != None, we dont have to update again
+                if not np.isnan(self.P_z[m][0, 0]):  # if != None, we dont have to update again
                     continue
                 if self.z[m] is None:
                     a2, z2 = None, None
                 else:
                     z2, ref2, a2 = self.z[m]
-                self._update_P_and_z(m, a2, z2)
-                # print(k, m)
-                self._update_sigma(m)
+                self._update_z_Pz_sigma(m, a2, z2)
 
         # update x and P (always possible)
         self._update_P_and_x(k, a, z)
@@ -102,8 +106,7 @@ class Estimator:
         # update z, Pz, sigma to step k (not possible if dropout)
         if self.gamma[-1] == 1:
             # update step k
-            self._update_P_and_z(k, a, z)
-            self._update_sigma(k)
+            self._update_z_Pz_sigma(k, a, z)
 
     def _update_P_and_x(self, k, a, z):
         """
@@ -119,23 +122,29 @@ class Estimator:
             message
         """
         if a == 1:
-            x_hat = z
+            if self.state_update:
+                x_hat = np.copy(z)
             P = np.zeros((self.params.dim, self.params.dim))
         else:
-            x_hat = self.params.A @ self.x_hat[k - 1]
+            if self.state_update:
+                x_hat = self.params.A @ self.x_hat[k - 1]
             P = self._Sigma_xx(k)
             if self.gamma[k] == 1:
                 Sigma_xz = self._Sigma_xz(k)
                 inv_Sigma_zz = np.linalg.inv(self._Sigma_zz(k))
-                # print(z)
-                x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self._z_pred(k))
+                if self.state_update:
+                    x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self._z_pred(k))
                 P -= Sigma_xz @ inv_Sigma_zz @ Sigma_xz.T
-        self.x_hat[k] = x_hat
+                if np.trace(P) < 1e-3:  # eliminate propagation of small errors todo: find sensible cut-off
+                    # todo: even better: implement case "can reconstruct from code" separately
+                    P = np.zeros((self.params.dim, self.params.dim))
+        if self.state_update:
+            self.x_hat[k] = x_hat
         self.P[k] = P
 
-    def _update_P_and_z(self, k, a, z):
+    def _update_z_Pz_sigma(self, k, a, z):
         """
-        Update z_hat = E[z_k | I_k] and P_{z,k}
+        Update z_hat and P_z and sigma
 
         Parameters
         ----------
@@ -147,34 +156,27 @@ class Estimator:
             message
         """
         if a == 0:
-            z_hat = z
+            if self.state_update:
+                z_hat = np.copy(z)
             Pz = np.zeros((self.params.dim, self.params.dim))
         else:
-            z_hat = self._z_pred(k)
+            if self.state_update:
+                z_hat = self._z_pred(k)
             Pz = self._Sigma_zz(k)
 
             if self.gamma[k] == 1:
                 sigma_zx = self._Sigma_xz(k).T
                 sigma_xx = np.linalg.inv(self._Sigma_xx(k))
-                z_hat += sigma_zx @ sigma_xx @ (z - self.params.A @ self.x_hat[k - 1])
+                if self.state_update:
+                    z_hat += sigma_zx @ sigma_xx @ (z - self.params.A @ self.x_hat[k - 1])
                 Pz -= sigma_zx @ sigma_xx @ sigma_zx.T
 
-        self.z_hat[k] = z_hat
+        if self.state_update:
+            self.z_hat[k] = z_hat
         self.P_z[k] = Pz
 
-    def _update_sigma(self, k):
-        """
-        Update sigma.
-
-        Parameters
-        ----------
-        k : int
-            step
-        """
         if self.gamma[k] == 0:
-            sigma = self.params.A @ self.P[k - 1] @ self.params.H.T + self.params.Q
-            if self.delta[k - 1] == 0:
-                sigma += self.params.A @ self.sigma[k - 1] @ self.params.L.T
+            sigma = self._Sigma_xz(k)
         else:
             sigma = np.zeros((self.params.dim, self.params.dim))
         self.sigma[k] = sigma
@@ -207,7 +209,6 @@ class Estimator:
         -------
         np.ndarray
         """
-        # print(k, self.sigma)
         Sigma_xz = self.params.A @ self.P[k - 1] @ self.params.H.T + self.params.Q
         if self.delta[k - 1] == 0:
             Sigma_xz += self.params.A @ self.sigma[k - 1] @ self.params.L.T
