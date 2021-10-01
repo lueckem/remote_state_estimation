@@ -30,6 +30,7 @@ class Estimator:
         self.gamma = [1]  # dropouts
         self.delta = []  # acknowledgments
         self.z = [None]  # trajectory of received SensorMessages
+        self.x_exact = [True]  # whether x_hat[k] = x[k]
         self.current_step = 0
 
     @property
@@ -87,9 +88,6 @@ class Estimator:
 
         # update trajectory of z_hat, Pz, sigma
         if self.gamma[-1] == 1:
-            # print(k, ref_time, len(self.delta[ref_time + 1:k]))
-            # print(ref_time)
-            # print(k)
             # update the past values up to k - 1
             for m in range(ref_time + 1, k):
                 if not np.isnan(self.P_z[m][0, 0]):  # if != None, we dont have to update again
@@ -101,14 +99,14 @@ class Estimator:
                 self._update_z_Pz_sigma(m, a2, z2)
 
         # update x and P (always possible)
-        self._update_P_and_x(k, a, z)
+        self._update_P_and_x(k, a, z, ref_time)
 
         # update z, Pz, sigma to step k (not possible if dropout)
         if self.gamma[-1] == 1:
             # update step k
             self._update_z_Pz_sigma(k, a, z)
 
-    def _update_P_and_x(self, k, a, z):
+    def _update_P_and_x(self, k, a, z, ref_time):
         """
         Update x_hat and P.
 
@@ -120,27 +118,34 @@ class Estimator:
             1 = plain state, 0 = state-secrecy code
         z : np.ndarray or None
             message
+        ref_time : int or None
         """
-        if a == 1:
+        if self.gamma[k] == 0:  # dropout
             if self.state_update:
-                x_hat = np.copy(z)
-            P = np.zeros((self.params.dim, self.params.dim))
-        else:
+                self.x_hat[k] = self.params.A @ self.x_hat[k - 1]
+            self.P[k] = self._Sigma_xx(k)
+            self.x_exact.append(False)
+        elif a == 1:  # receive plain state
             if self.state_update:
-                x_hat = self.params.A @ self.x_hat[k - 1]
-            P = self._Sigma_xx(k)
-            if self.gamma[k] == 1:
+                self.x_hat[k] = np.copy(z)
+            self.P[k] = np.zeros((self.params.dim, self.params.dim))
+            self.x_exact.append(True)
+        else:  # receive state-secrecy code
+            if self.x_exact[ref_time]:  # state can be calculated from code exactly
+                self.P[k] = np.zeros((self.params.dim, self.params.dim))
+                if self.state_update:
+                    self.x_hat[k] = self.params.A @ self.x_hat[k - 1] + \
+                                    self._Sigma_xz(k) @ np.linalg.inv(self._Sigma_zz(k)) @ (z - self._z_pred(k))
+                self.x_exact.append(True)
+            else:
+                Sigma_xx = self._Sigma_xx(k)
                 Sigma_xz = self._Sigma_xz(k)
                 inv_Sigma_zz = np.linalg.inv(self._Sigma_zz(k))
+                self.P[k] = Sigma_xx - Sigma_xz @ inv_Sigma_zz @ Sigma_xz.T
                 if self.state_update:
-                    x_hat += Sigma_xz @ inv_Sigma_zz @ (z - self._z_pred(k))
-                P -= Sigma_xz @ inv_Sigma_zz @ Sigma_xz.T
-                if np.trace(P) < 1e-3:  # eliminate propagation of small errors todo: find sensible cut-off
-                    # todo: even better: implement case "can reconstruct from code" separately
-                    P = np.zeros((self.params.dim, self.params.dim))
-        if self.state_update:
-            self.x_hat[k] = x_hat
-        self.P[k] = P
+                    self.x_hat[k] = self.params.A @ self.x_hat[k - 1] + \
+                                    self._Sigma_xz(k) @ np.linalg.inv(self._Sigma_zz(k)) @ (z - self._z_pred(k))
+                self.x_exact.append(False)
 
     def _update_z_Pz_sigma(self, k, a, z):
         """

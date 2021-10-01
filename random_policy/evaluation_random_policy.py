@@ -8,17 +8,23 @@ from scipy.signal import savgol_filter
 
 
 def random_sensor_different_alpha():
-    num_steps = 200000
+    num_steps = 300000
 
     A = np.array([[0.9]])
     Q = np.array([[1]])
-    L = np.array([[1.0 / 0.9]])
+    # L = np.array([[1.0 / 0.9]])
 
-    params = SystemParam(A, Q, L)
+    A = np.array([[1.2, 0.1],
+                  [0, 0.5]])
+    Q = np.array([[0.6, 0.2],
+                 [0.2, 0.5]])
+
+    params = SystemParam(A, Q)
+    params.x0 = np.ones(2) * np.nan
     lambda_u = 0.8
     lambda_e = 0.8
-    p = 0.2
-    alphas = np.linspace(0, 1, 101)
+    p = 0.1
+    alphas = np.linspace(0.01, 1, 101)
 
     err_u = []
     err_e = []
@@ -26,8 +32,8 @@ def random_sensor_different_alpha():
     for alpha in alphas:
         print(alpha)
         sensor = RandomSensor(params, probability_send_state=alpha)
-        user = Estimator(params)
-        eavesdropper = Estimator(params)
+        user = Estimator(params, state_update=False)
+        eavesdropper = Estimator(params, state_update=False)
 
         gamma_u = np.random.binomial(1, lambda_u, num_steps)
         gamma_e = np.random.binomial(1, lambda_e, num_steps)
@@ -37,9 +43,9 @@ def random_sensor_different_alpha():
         err_u.append(user.mean_error)
         err_e.append(eavesdropper.mean_error)
 
-    np.save("alphas4.npy", alphas)
-    np.save("erru4.npy", err_u)
-    np.save("erre4.npy", err_e)
+    np.save("alphas2D.npy", alphas)
+    np.save("erru2D.npy", err_u)
+    np.save("erre2D.npy", err_e)
 
 
 def plot_eval():
@@ -81,7 +87,7 @@ def plot_eval():
     ax.legend()
     ax.set_xlabel(r"$\alpha$")
     ax.set_ylabel(r"$\varepsilon^u / \varepsilon^e$")
-    ax.set_ylim([0, 2.5])
+    # ax.set_ylim([0, 2.5])
     plt.tight_layout()
     plt.subplots_adjust(left=0.13, right=0.97, top=0.97, bottom=0.13)
     plt.savefig("random.pdf")
@@ -90,4 +96,11 @@ def plot_eval():
 
 if __name__ == '__main__':
     # random_sensor_different_alpha()
-    plot_eval()
+    # plot_eval()
+    alphas1 = np.load("alphas2D.npy")
+    err_u1 = np.load("erru2D.npy")
+    err_e1 = np.load("erre2D.npy")
+    idx = np.array(err_e1) < 10000
+    # plt.plot(alphas1[idx], np.array(err_u1)[idx] / np.array(err_e1)[idx], '-x', label="1")
+    plt.semilogy(alphas1[idx], np.array(err_e1)[idx], '-x', label="1")
+    plt.show()
