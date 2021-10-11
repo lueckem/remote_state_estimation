@@ -65,8 +65,8 @@ def plot_eval():
         err_e[i] = err_e[i][idx]
         err_e[i] = err_e[i][err_u[i] < 10]
         err_u[i] = err_u[i][err_u[i] < 10]
-        print(err_u[i][:10])
-        print(err_e[i][:10])
+        # print(err_u[i][:10])
+        # print(err_e[i][:10])
 
         idx = np.argsort(ran_err_u[i])
         ran_err_u[i] = ran_err_u[i][idx]
@@ -77,7 +77,10 @@ def plot_eval():
         # print(x_min, x_max)
         x = np.linspace(x_min, x_max, 101)
         pol = interp1d(err_u[i], err_e[i])
+        plt.plot(x, pol(x))
         ran_pol = interp1d(ran_err_u[i], ran_err_e[i])
+        plt.plot(x, ran_pol(x))
+        plt.show()
         y_list.append(pol(x) / ran_pol(x))
         x_list.append(x)
 
@@ -103,8 +106,8 @@ def plot_eval():
     ax.legend()
     ax.set_xlabel(r"$M$")
     ax.set_ylabel(r"$\varepsilon^e_{thresh} / \varepsilon^e_{rand}$")
-    ax.set_xlim([0, 10])
-    ax.set_ylim([0, 10])
+    # ax.set_xlim([0, 10])
+    # ax.set_ylim([0, 10])
     plt.tight_layout()
     plt.subplots_adjust(left=0.16, right=0.97, top=0.97, bottom=0.13)
     plt.savefig("random.pdf")

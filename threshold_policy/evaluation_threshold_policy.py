@@ -9,6 +9,7 @@ from scipy.signal import savgol_filter
 
 def sensor_different_threshold():
     num_steps = 600000
+    steps_per_run = 50
 
 
     A = np.array([[0.9]])
@@ -25,29 +26,37 @@ def sensor_different_threshold():
     lambda_u = 0.8
     lambda_e = 0.8
     p = 0.1
-    thresholds = np.linspace(0, 0.95, 101)
-    thresholds = [0.0855, 0.095, 0.1045, 0.114, 0.1235, 0.133, 0.1425, 0.152, 0.1615, 0.171, 0.1805, 0.19, 0.1995, 0.209]
+    thresholds = np.linspace(0, 0.3, 31)
+    # thresholds = [0.0855, 0.095, 0.1045, 0.114, 0.1235, 0.133, 0.1425, 0.152, 0.1615, 0.171, 0.1805, 0.19, 0.1995, 0.209]
+    # thresholds = [0.209]
 
     err_u = []
     err_e = []
 
     for threshold in thresholds:
         print(threshold)
-        sensor = ThresholdSensor(params, threshold, lambda_u, p=p)
-        user = Estimator(params, state_update=False)
-        eavesdropper = Estimator(params, state_update=False)
+        num_its = 0
+        this_err_u = []
+        this_err_e = []
+        while num_its < num_steps:
+            num_its += steps_per_run
+            sensor = ThresholdSensor(params, threshold, lambda_u, p=p)
+            user = Estimator(params, state_update=False)
+            eavesdropper = Estimator(params, state_update=False)
 
-        gamma_u = np.random.binomial(1, lambda_u, num_steps)
-        gamma_e = np.random.binomial(1, lambda_e, num_steps)
-        e = np.random.binomial(1, p, num_steps)
-        run_sim(sensor, user, eavesdropper, num_steps, gamma_u, gamma_e, e)
+            gamma_u = np.random.binomial(1, lambda_u, steps_per_run)
+            gamma_e = np.random.binomial(1, lambda_e, steps_per_run)
+            e = np.random.binomial(1, p, steps_per_run)
+            run_sim(sensor, user, eavesdropper, steps_per_run, gamma_u, gamma_e, e)
 
-        err_u.append(user.mean_error)
-        err_e.append(eavesdropper.mean_error)
+            this_err_u.append(user.mean_error)
+            this_err_e.append(eavesdropper.mean_error)
+        err_u.append(np.mean(this_err_u))
+        err_e.append(np.mean(this_err_e))
 
-    np.save("thresholds2D2.npy", thresholds)
-    np.save("erru2D2.npy", err_u)
-    np.save("erre2D2.npy", err_e)
+    np.save("Xthresholds.npy", thresholds)
+    np.save("Xerru.npy", err_u)
+    np.save("Xerre.npy", err_e)
 
 
 def plot_eval():
@@ -109,26 +118,25 @@ def plot_eval():
 if __name__ == '__main__':
     # sensor_different_threshold()
     # plot_eval()
+
+    alphas1 = np.load("Xthresholds.npy")
+    err_u1 = np.load("Xerru.npy")
+    err_e1 = np.load("Xerre.npy")
+    idx = np.array(err_u1) < 5
+    print(np.array(err_u1)[idx])
+    print(np.array(err_e1)[idx])
+    plt.plot(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
+    # plt.plot(alphas1[idx], np.array(err_e1)[idx], '-x', label="1")
+    # plt.semilogy(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
+    plt.show()
+    plt.plot()
+
     # alphas1 = np.load("thresholds2D.npy")
-    # print(alphas1)
     # err_u1 = np.load("erru2D.npy")
     # err_e1 = np.load("erre2D.npy")
-    # idx = np.array(err_u1) < 100
-    # plt.plot(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
-    # # plt.semilogy(alphas1[idx], np.array(err_e1)[idx], '-x', label="1")
-    # # plt.semilogy(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
-    # plt.show()
-
-    alphas1 = np.load("thresholds2D.npy")
-    err_u1 = np.load("erru2D.npy")
-    err_e1 = np.load("erre2D.npy")
-    err_u12 = np.load("erru2D2.npy")
-    err_e12 = np.load("erre2D2.npy")
-    print(alphas1[9:23])
-    print(err_e1[9:23])
-    print(err_e12)
-    err_u1[9:23] = 0.5 * err_u1[9:23] + 0.5 * err_u12
-    err_e1[9:23] = 0.5 * err_e1[9:23] + 0.5 * err_e12
-    print(err_e1[9:23])
+    # err_u12 = np.load("erru2D2.npy")
+    # err_e12 = np.load("erre2D2.npy")
+    # err_u1[9:23] = 0.5 * err_u1[9:23] + 0.5 * err_u12
+    # err_e1[9:23] = 0.5 * err_e1[9:23] + 0.5 * err_e12
     # np.save("erru2D.npy", err_u1)
     # np.save("erre2D.npy", err_e1)

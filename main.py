@@ -59,7 +59,7 @@ def test():
     p = 0.1
 
     # sensor = RandomSensor(params, probability_send_state=alpha)
-    sensor = ThresholdSensor(params, 0.1, lambda_u, p)
+    sensor = ThresholdSensor(params, 0.25, lambda_u, p)
     user = Estimator(params)
     eavesdropper = Estimator(params)
 
