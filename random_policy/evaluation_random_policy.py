@@ -25,7 +25,7 @@ def random_sensor_different_alpha():
     lambda_u = 0.8
     lambda_e = 0.8
     p = 0.1
-    alphas = np.linspace(0.01, 1, 31)
+    alphas = np.linspace(0.01, 1, 31)[7:11]
     print(alphas)
 
     err_u = []
@@ -52,9 +52,9 @@ def random_sensor_different_alpha():
         err_u.append(np.mean(this_err_u))
         err_e.append(np.mean(this_err_e))
 
-    np.save("Xalphas.npy", alphas)
-    np.save("Xerru.npy", err_u)
-    np.save("Xerre.npy", err_e)
+    np.save("Xalphas3.npy", alphas)
+    np.save("Xerru3.npy", err_u)
+    np.save("Xerre3.npy", err_e)
 
 
 def plot_eval():
@@ -109,6 +109,7 @@ if __name__ == '__main__':
     alphas1 = np.load("Xalphas.npy")
     print(alphas1)
     err_u1 = np.load("Xerru.npy")
+    print(err_u1)
     err_e1 = np.load("Xerre.npy")
     idx = np.array(err_u1) < 20
     # plt.plot(alphas1[idx], np.array(err_u1)[idx] / np.array(err_e1)[idx], '-x', label="1")

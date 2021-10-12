@@ -26,7 +26,7 @@ def sensor_different_threshold():
     lambda_u = 0.8
     lambda_e = 0.8
     p = 0.1
-    thresholds = np.linspace(0, 0.3, 31)
+    thresholds = np.linspace(0, 0.3, 31)[13:]
     # thresholds = [0.0855, 0.095, 0.1045, 0.114, 0.1235, 0.133, 0.1425, 0.152, 0.1615, 0.171, 0.1805, 0.19, 0.1995, 0.209]
     # thresholds = [0.209]
 
@@ -54,9 +54,9 @@ def sensor_different_threshold():
         err_u.append(np.mean(this_err_u))
         err_e.append(np.mean(this_err_e))
 
-    np.save("Xthresholds.npy", thresholds)
-    np.save("Xerru.npy", err_u)
-    np.save("Xerre.npy", err_e)
+    np.save("Xthresholds2.npy", thresholds)
+    np.save("Xerru2.npy", err_u)
+    np.save("Xerre2.npy", err_e)
 
 
 def plot_eval():
@@ -120,23 +120,21 @@ if __name__ == '__main__':
     # plot_eval()
 
     alphas1 = np.load("Xthresholds.npy")
+    print(alphas1)
     err_u1 = np.load("Xerru.npy")
     err_e1 = np.load("Xerre.npy")
-    idx = np.array(err_u1) < 5
+    err_u2 = np.load("Xerru2.npy")
+    err_e2 = np.load("Xerre2.npy")
+    idx = np.array(err_u1) < 20
     print(np.array(err_u1)[idx])
     print(np.array(err_e1)[idx])
     plt.plot(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
-    # plt.plot(alphas1[idx], np.array(err_e1)[idx], '-x', label="1")
+    plt.plot(alphas1[idx], np.array(err_e1)[idx], '-x', label="1")
     # plt.semilogy(alphas1[idx], np.array(err_u1)[idx], '-x', label="1")
-    plt.show()
-    plt.plot()
 
-    # alphas1 = np.load("thresholds2D.npy")
-    # err_u1 = np.load("erru2D.npy")
-    # err_e1 = np.load("erre2D.npy")
-    # err_u12 = np.load("erru2D2.npy")
-    # err_e12 = np.load("erre2D2.npy")
-    # err_u1[9:23] = 0.5 * err_u1[9:23] + 0.5 * err_u12
-    # err_e1[9:23] = 0.5 * err_e1[9:23] + 0.5 * err_e12
-    # np.save("erru2D.npy", err_u1)
-    # np.save("erre2D.npy", err_e1)
+    err_u1[13:] = (err_u1[13:] + err_u2) / 2
+    err_e1[13:] = (err_e1[13:] + err_e2) / 2
+    plt.plot(alphas1[idx], np.array(err_u1)[idx], '-o', label="1")
+    plt.plot(alphas1[idx], np.array(err_e1)[idx], '-o', label="1")
+    plt.plot()
+    plt.show()

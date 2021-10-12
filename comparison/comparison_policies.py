@@ -29,8 +29,8 @@ def plot_eval():
     ran_err_u4 = np.load(directory + "erru4.npy")
     ran_err_e4 = np.load(directory + "erre4.npy")
 
-    ran_err_u2D = np.load(directory + "erru2D.npy")
-    ran_err_e2D = np.load(directory + "erre2D.npy")
+    ran_err_u2D = np.load(directory + "Xerru.npy")
+    ran_err_e2D = np.load(directory + "Xerre.npy")
 
     directory = "../threshold_policy/"
     err_u1 = np.load(directory + "erru1.npy")
@@ -47,8 +47,8 @@ def plot_eval():
     err_u4 = np.load(directory + "erru4.npy")
     err_e4 = np.load(directory + "erre4.npy")
 
-    err_u2D = np.load(directory + "erru2D.npy")
-    err_e2D = np.load(directory + "erre2D.npy")
+    err_u2D = np.load(directory + "Xerru.npy")
+    err_e2D = np.load(directory + "Xerre.npy")
 
     err_u = [err_u1, err_u2, err_u3, err_u4, err_u1_wrongp, err_u2D]
     err_e = [err_e1, err_e2, err_e3, err_e4, err_e1_wrongp, err_e2D]
