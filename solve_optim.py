@@ -5,7 +5,7 @@ from estimator import Estimator
 from main import run_sim
 
 
-def find_optimal_alpha(params, M, lambda_u, lambda_e, p, alpha_range=(0, 1), tol=1e-2):
+def find_optimal_alpha(params, M, lambda_u, lambda_e, p, alpha_range=(0, 1), tol=1e-2, max_steps=np.infty):
     """
 
     Parameters
@@ -18,6 +18,8 @@ def find_optimal_alpha(params, M, lambda_u, lambda_e, p, alpha_range=(0, 1), tol
     alpha_range : tuple[float], optional
     tol : float, optional
         tolerance for |M - error_u|
+    max_steps : float, optional
+        maximum number of bisection steps
 
     Returns
     -------
@@ -25,17 +27,22 @@ def find_optimal_alpha(params, M, lambda_u, lambda_e, p, alpha_range=(0, 1), tol
     error_u : float
     error_e : float
     """
-    steps_per_run = 50
-    runs_per_iteration = 10000
+    steps_per_run = 50000
+    runs_per_iteration = 1
 
     up = alpha_range[1]
     low = alpha_range[0]
     alpha = 0.5 * (low + up)
     error_u = np.infty
     error_e = np.infty
+    this_step = 0
 
     while np.abs(error_u - M) > tol:
         print("(low, alpha, up): ({},{},{})".format(np.round(low, 4), np.round(alpha, 4), np.round(up, 4)))
+        this_step += 1
+        if this_step > max_steps:
+            print("Reached maximum number of bisection steps.")
+            break
         error_u = np.infty
         error_e = np.infty
         counter = 0
@@ -97,8 +104,8 @@ def find_optimal_threshold(params, M, lambda_u, lambda_e, p, threshold_range=(0,
     error_u : float
     error_e : float
     """
-    steps_per_run = 50
-    runs_per_iteration = 10000
+    steps_per_run = 50000
+    runs_per_iteration = 1
 
     up = threshold_range[1]
     low = threshold_range[0]

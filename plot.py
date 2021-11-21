@@ -4,7 +4,7 @@ from sensor import Sensor
 from estimator import Estimator
 
 
-def plot_traj(sensor, user, eavesdropper, e):
+def plot_traj(sensor, user, eavesdropper, e, save_fig=True):
     """
     Parameters
     ----------
@@ -13,6 +13,7 @@ def plot_traj(sensor, user, eavesdropper, e):
     eavesdropper : Estimator
     e : np.ndarray
         shape=(num_steps,), 1=attack
+    save_fig : bool, optional
     """
     fig, (ax1, ax2, ax3) = plt.subplots(3, sharex=True, gridspec_kw={'height_ratios': [3, 3, 1]}, figsize=(5, 5))
     # fig.suptitle(
